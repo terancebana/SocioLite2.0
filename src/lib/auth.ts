@@ -1,10 +1,9 @@
 import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
 import { query } from './db'
+import { getJwtSecret } from './jwt'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
-
-type Session = {
+export type Session = {
   user: {
     id: string
     name: string
@@ -24,13 +23,13 @@ export async function auth(): Promise<Session> {
     // Verify the JWT token
     const { payload } = await jwtVerify(
       token.value,
-      new TextEncoder().encode(JWT_SECRET)
+      getJwtSecret()
     )
     
     // Get user from database
     const result = await query(
       'SELECT id, name, email FROM users WHERE id = $1',
-      [payload.userId]
+      [payload.userId as string]
     )
     
     if (result.rows.length === 0) {
@@ -50,4 +49,4 @@ export async function auth(): Promise<Session> {
     console.error('Auth error:', error)
     return null
   }
-} 
+}

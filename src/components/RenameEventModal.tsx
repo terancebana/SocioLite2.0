@@ -1,153 +1,56 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { io } from "socket.io-client";
+import { useState, useEffect } from "react"
 
-interface RenameEventModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  eventId: string;
-  currentTitle: string;
-  onSuccess: () => void;
-}
+interface Props { isOpen: boolean; onClose: () => void; eventId: string; currentTitle: string; onSuccess: () => void }
 
-export default function RenameEventModal({
-  isOpen,
-  onClose,
-  eventId,
-  currentTitle,
-  onSuccess,
-}: RenameEventModalProps) {
-  const [title, setTitle] = useState(currentTitle);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [isVisible, setIsVisible] = useState(false);
+export default function RenameEventModal({ isOpen, onClose, eventId, currentTitle, onSuccess }: Props) {
+  const [title, setTitle] = useState(currentTitle)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [isVisible, setIsVisible] = useState(false)
 
-  useEffect(() => {
-    if (isOpen) {
-      const timer = setTimeout(() => {
-        setIsVisible(true);
-      }, 50);
-      return () => clearTimeout(timer);
-    } else {
-      setIsVisible(false);
-    }
-  }, [isOpen]);
+  useEffect(() => { if (isOpen) { setTitle(currentTitle); requestAnimationFrame(() => setIsVisible(true)) } else setIsVisible(false) }, [isOpen, currentTitle])
 
-  const handleClose = () => {
-    setIsVisible(false);
-    setTimeout(onClose, 300);
-  };
-
-  if (!isOpen) return null;
+  const handleClose = () => { setIsVisible(false); setTimeout(onClose, 200) }
+  if (!isOpen) return null
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setIsLoading(true);
-    setError("");
-
+    e.preventDefault(); setIsLoading(true); setError("")
     try {
       const response = await fetch(`/api/events/${eventId}/rename`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ title }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to rename event");
-      }
-
-      const socket = io({
-        path: "/api/socket",
-        addTrailingSlash: false,
-      });
-
-      socket.emit("event-renamed", {
-        eventId,
-        oldTitle: data.oldTitle,
-        newTitle: title,
-      });
-
-      socket.disconnect();
-
-      onSuccess();
-      handleClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to rename event");
-    } finally {
-      setIsLoading(false);
-    }
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Failed")
+      onSuccess(); handleClose()
+    } catch (err) { setError(err instanceof Error ? err.message : "Failed") }
+    finally { setIsLoading(false) }
   }
 
   return (
-    <div
-      className={`fixed inset-0 bg-black transition-opacity duration-300 flex items-center justify-center p-4 z-50 ${
-        isVisible ? "bg-opacity-50" : "bg-opacity-0"
-      }`}
-      onClick={handleClose}
-    >
-      <div
-        className={`bg-white rounded-lg p-6 w-full max-w-md transform transition-all duration-300 ${
-          isVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4"
-        }`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold opacity-0 animate-fadeIn">
-            Rename Event
-          </h2>
-          <button
-            onClick={handleClose}
-            className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
-          >
-            ✕
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-colors duration-200 ${isVisible ? "bg-black/50" : "bg-transparent"}`} onClick={handleClose}>
+      <div className={`card p-6 w-full max-w-sm transition-all duration-200 ${isVisible ? "modal-content" : "opacity-0 scale-95"}`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold text-ink-primary">Rename Event</h2>
+          <button onClick={handleClose} className="btn-ghost btn-icon btn-sm">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
-
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="bg-red-50 text-red-500 p-3 rounded-md text-sm opacity-0 animate-fadeIn animation-delay-100">
-              {error}
-            </div>
-          )}
-
-          <div className="opacity-0 animate-fadeIn animation-delay-200">
-            <label htmlFor="title" className="block text-sm font-medium mb-1">
-              New Title
-            </label>
-            <input
-              type="text"
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-              className="w-full px-3 py-2 border rounded-md transition-all duration-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              placeholder="Enter new title"
-            />
+          {error && <div className="bg-danger-light text-danger-dark px-4 py-3 rounded-xl text-sm animate-slide-down">{error}</div>}
+          <div>
+            <label className="block text-sm font-medium text-ink-primary mb-1.5">New Name</label>
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={200} className="input" />
           </div>
-
-          <div className="flex gap-2 justify-end mt-6 opacity-0 animate-fadeIn animation-delay-300">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors duration-200"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading || title === currentTitle}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors duration-200"
-            >
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={handleClose} className="btn-secondary btn-sm">Cancel</button>
+            <button type="submit" disabled={isLoading || title === currentTitle || !title.trim()} className="btn-primary btn-sm">
               {isLoading ? "Renaming..." : "Rename"}
             </button>
           </div>
         </form>
       </div>
     </div>
-  );
+  )
 }

@@ -1,117 +1,95 @@
-import { NextResponse } from "next/server";
-import { query } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { NextResponse } from "next/server"
+import { query } from "@/lib/db"
+import { auth } from "@/lib/auth"
 
 export async function POST(request: Request) {
   try {
-    const session = await auth();
+    const session = await auth()
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { title, description, eventDate } = await request.json();
-    console.log('Received event data:', { title, description, eventDate });
+    const { title, description, eventDate } = await request.json()
 
-    // Validate input
-    if (!title || !eventDate) {
-      return NextResponse.json(
-        { error: "Title and event date are required" },
-        { status: 400 }
-      );
+    if (!title || typeof title !== "string" || title.trim().length === 0) {
+      return NextResponse.json({ error: "Title is required" }, { status: 400 })
+    }
+
+    if (title.length > 200) {
+      return NextResponse.json({ error: "Title must be under 200 characters" }, { status: 400 })
+    }
+
+    if (!eventDate) {
+      return NextResponse.json({ error: "Event date is required" }, { status: 400 })
+    }
+
+    const parsedDate = new Date(eventDate)
+    if (isNaN(parsedDate.getTime())) {
+      return NextResponse.json({ error: "Invalid event date" }, { status: 400 })
     }
 
     // Create event
-    console.log('Creating event for user:', session.user.id);
     const result = await query(
       `INSERT INTO events (title, description, event_date, creator_id)
        VALUES ($1, $2, $3, $4)
-       RETURNING id, title, description, event_date, created_at`,
-      [title, description, new Date(eventDate).toISOString(), session.user.id]
-    );
+       RETURNING id, title, description, event_date, created_at, creator_id`,
+      [title.trim(), description || null, parsedDate.toISOString(), session.user.id]
+    )
 
-    // Add creator as a participant
+    // Add creator as participant
     await query(
-      `INSERT INTO event_participants (event_id, user_id)
-       VALUES ($1, $2)`,
+      `INSERT INTO event_participants (event_id, user_id) VALUES ($1, $2)`,
       [result.rows[0].id, session.user.id]
-    );
+    )
 
     return NextResponse.json({
       success: true,
-      event: result.rows[0],
-    });
-  } catch (err: unknown) {
-    const error = err as Error;
-    console.error("Error creating event:", {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-    });
-    return NextResponse.json(
-      { error: "Failed to create event", details: error.message },
-      { status: 500 }
-    );
+      event: {
+        ...result.rows[0],
+        creator_name: session.user.name,
+        participant_count: 1,
+        participants: [{ name: session.user.name, email: session.user.email }],
+      },
+    })
+  } catch (error) {
+    console.error("Error creating event:", error)
+    return NextResponse.json({ error: "Failed to create event" }, { status: 500 })
   }
 }
 
 export async function GET() {
   try {
-    const session = await auth();
+    const session = await auth()
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Fetch events where user is either creator or participant
+    // Single query: fetch events with creator name, participant count, and participants
     const events = await query(
-      `SELECT 
-        e.*,
+      `SELECT
+        e.id, e.title, e.description, e.event_date, e.created_at, e.creator_id,
         u.name as creator_name,
-        (
-          SELECT COUNT(*) 
-          FROM event_participants 
-          WHERE event_id = e.id
-        ) as participant_count
+        COUNT(ep.user_id) as participant_count,
+        COALESCE(
+          json_agg(
+            json_build_object('name', pu.name, 'email', pu.email)
+          ) FILTER (WHERE pu.id IS NOT NULL),
+          '[]'::json
+        ) as participants
        FROM events e
        JOIN users u ON e.creator_id = u.id
+       LEFT JOIN event_participants ep ON e.id = ep.event_id
+       LEFT JOIN users pu ON ep.user_id = pu.id
        WHERE e.creator_id = $1
-       OR e.id IN (
-         SELECT event_id 
-         FROM event_participants 
-         WHERE user_id = $1
-       )
+          OR e.id IN (SELECT event_id FROM event_participants WHERE user_id = $1)
+       GROUP BY e.id, u.name
        ORDER BY e.event_date DESC`,
       [session.user.id]
-    );
+    )
 
-    // Add participant details to each event
-    const eventsWithParticipants = await Promise.all(
-      events.rows.map(async (event) => {
-        const participants = await query(
-          `SELECT u.name, u.email 
-           FROM event_participants ep
-           JOIN users u ON ep.user_id = u.id
-           WHERE ep.event_id = $1`,
-          [event.id]
-        );
-
-        return {
-          ...event,
-          participants: participants.rows,
-        };
-      })
-    );
-
-    return NextResponse.json(eventsWithParticipants);
-  } catch (err: unknown) {
-    const error = err as Error;
-    console.error("Error fetching events:", {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-    });
-    return NextResponse.json(
-      { error: "Failed to fetch events", details: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json(events.rows)
+  } catch (error) {
+    console.error("Error fetching events:", error)
+    return NextResponse.json({ error: "Failed to fetch events" }, { status: 500 })
   }
-} 
+}

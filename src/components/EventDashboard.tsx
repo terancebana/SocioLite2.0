@@ -1,464 +1,266 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import ChatWindow from "./ChatWindow";
-import CreateEventModal from "./CreateEventModal";
-import InviteParticipantModal from "./InviteParticipantModal";
-import RenameEventModal from "./RenameEventModal";
-import ParticipantListModal from "./ParticipantListModal";
-import { format } from "date-fns";
+import { useState, useEffect, useCallback } from "react"
+import { format } from "date-fns"
+import ChatWindow from "./ChatWindow"
+import CreateEventModal from "./CreateEventModal"
+import InviteParticipantModal from "./InviteParticipantModal"
+import RenameEventModal from "./RenameEventModal"
+import ParticipantListModal from "./ParticipantListModal"
+
+interface Participant { name: string; email: string }
 
 interface Event {
-  id: string;
-  title: string;
-  description: string;
-  event_date: string;
-  creator_id: string;
-  creator_name: string;
-  participant_count: number;
-  participants: Array<{
-    name: string;
-    email: string;
-  }>;
+  id: string; title: string; description: string; event_date: string
+  creator_id: string; creator_name: string; participant_count: number
+  participants: Participant[]
 }
 
-interface EventDashboardProps {
-  userId: string;
-}
+interface EventDashboardProps { userId: string }
 
-interface ExpandedState {
-  [key: string]: boolean;
-}
+export default function EventDashboard({ userId }: EventDashboardProps) {
+  const [events, setEvents] = useState<Event[]>([])
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false)
+  const [isParticipantListOpen, setIsParticipantListOpen] = useState(false)
+  const [filter, setFilter] = useState<"all" | "created" | "participating">("all")
+  const [searchTerm, setSearchTerm] = useState("")
 
-const EventDashboard: React.FC<EventDashboardProps> = ({ userId }) => {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
-  const [isParticipantListOpen, setIsParticipantListOpen] = useState(false);
-  const [filter, setFilter] = useState<"all" | "created" | "participating">(
-    "all"
-  );
-  const [expandedEvents, setExpandedEvents] = useState<ExpandedState>({});
-  const [searchTerm, setSearchTerm] = useState("");
-  // const [closingEvents, setClosingEvents] = useState<{
-  //   [key: string]: boolean;
-  // }>({});
-  // const [showParticipants, setShowParticipants] = useState(false);
-
-  async function fetchEvents() {
+  const fetchEvents = useCallback(async () => {
     try {
-      const response = await fetch("/api/events");
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Event fetch error:", errorData);
-        throw new Error(errorData.error || "Failed to fetch events");
-      }
-      const data = await response.json();
-      setEvents(data);
-
-      // Update selected event if it exists in the new data
+      const response = await fetch("/api/events")
+      if (!response.ok) throw new Error("Failed to fetch events")
+      const data = await response.json()
+      setEvents(data)
       if (selectedEvent) {
-        const updatedEvent = data.find((e: Event) => e.id === selectedEvent.id);
-        if (updatedEvent) {
-          setSelectedEvent(updatedEvent);
-        }
+        const updated = data.find((e: Event) => e.id === selectedEvent.id)
+        if (updated) setSelectedEvent(updated)
       }
-    } catch (err) {
-      console.error("Error details:", err);
-      setError(err instanceof Error ? err.message : "Failed to load events");
+    } catch {
+      setError("Failed to load events")
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
-    fetchEvents();
-    // Set up polling for updates every 30 seconds
-    const interval = setInterval(fetchEvents, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    fetchEvents()
+    const interval = setInterval(fetchEvents, 30000)
+    return () => clearInterval(interval)
+  }, [fetchEvents])
 
   useEffect(() => {
-    // If the selected event is no longer in the events list, clear the selection
     if (selectedEvent && !events.find((e) => e.id === selectedEvent.id)) {
-      setSelectedEvent(null);
+      setSelectedEvent(null)
     }
-  }, [events, selectedEvent]);
+  }, [events, selectedEvent])
 
-  const handleEventSelect = (event: Event) => {
-    // If clicking the same event, do nothing
-    if (selectedEvent?.id === event.id) return;
+  const filtered = events.filter((e) => {
+    const matchesSearch = !searchTerm || e.title.toLowerCase().includes(searchTerm.toLowerCase())
+      || e.creator_name.toLowerCase().includes(searchTerm.toLowerCase())
+    if (!matchesSearch) return false
+    if (filter === "created") return e.creator_id === userId
+    if (filter === "participating") return e.creator_id !== userId
+    return true
+  })
 
-    // Simply update the selected event
-    setSelectedEvent(event);
-  };
+  const sorted = [...filtered].sort((a, b) => {
+    const da = new Date(a.event_date).getTime(), db = new Date(b.event_date).getTime()
+    const now = Date.now()
+    const aFuture = da > now, bFuture = db > now
+    if (aFuture !== bFuture) return aFuture ? -1 : 1
+    return Math.abs(da - now) - Math.abs(db - now)
+  })
 
-  const filteredEvents = events.filter((event) => {
-    // First apply search filter
-    const matchesSearch =
-      searchTerm === "" ||
-      event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      event.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      event.creator_name.toLowerCase().includes(searchTerm.toLowerCase());
+  if (isLoading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-8 w-8 border-2 border-brand-200 border-t-brand-500" />
+    </div>
+  )
 
-    if (!matchesSearch) return false;
-
-    // Then apply tab filter
-    switch (filter) {
-      case "created":
-        return event.creator_id === userId;
-      case "participating":
-        return (
-          event.creator_id !== userId &&
-          event.participants.some((p) => p.email === userId)
-        );
-      default:
-        return true;
-    }
-  });
-
-  // Sort events by date, with upcoming events first
-  const sortedEvents = [...filteredEvents].sort((a, b) => {
-    const dateA = new Date(a.event_date);
-    const dateB = new Date(b.event_date);
-    const now = new Date();
-
-    // If both dates are in the past or both are in the future, sort by closest to now
-    if ((dateA < now && dateB < now) || (dateA >= now && dateB >= now)) {
-      return (
-        Math.abs(dateA.getTime() - now.getTime()) -
-        Math.abs(dateB.getTime() - now.getTime())
-      );
-    }
-    // Put future events first
-    return dateA >= now ? -1 : 1;
-  });
-
-  function handleInviteSuccess() {
-    fetchEvents();
-    setIsInviteModalOpen(false);
-  }
-
-  const toggleEventDetails = (eventId: string) => {
-    setExpandedEvents((prev) => ({ ...prev, [eventId]: !prev[eventId] }));
-  };
-
-  if (isLoading)
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
-    );
-
-  if (error)
-    return <div className="text-red-500 p-4 text-center">Error: {error}</div>;
+  if (error) return (
+    <div className="card p-8 text-center">
+      <p className="text-danger font-medium">{error}</p>
+      <button onClick={fetchEvents} className="btn-secondary btn-sm mt-4">Retry</button>
+    </div>
+  )
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Sidebar: Events List */}
       <div className="lg:col-span-1">
-        <div className="flex flex-col space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Your Events</h2>
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
-              Create Event
+        <div className="sticky top-24 space-y-4">
+          {/* Header */}
+          <div className="flex items-center justify-between animate-fade-in">
+            <div>
+              <h2 className="text-lg font-semibold text-ink-primary">Events</h2>
+              <p className="text-xs text-ink-muted">{events.length} total</p>
+            </div>
+            <button onClick={() => setIsCreateModalOpen(true)} className="btn-primary btn-sm">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New
             </button>
           </div>
 
-          <div className="flex space-x-2 mb-4">
-            <button
-              onClick={() => setFilter("all")}
-              className={`px-3 py-1 rounded-md ${
-                filter === "all"
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-gray-100 hover:bg-gray-200"
-              }`}
-            >
-              All ({events.length})
-            </button>
-            <button
-              onClick={() => setFilter("created")}
-              className={`px-3 py-1 rounded-md ${
-                filter === "created"
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-gray-100 hover:bg-gray-200"
-              }`}
-            >
-              Created ({events.filter((e) => e.creator_id === userId).length})
-            </button>
-            <button
-              onClick={() => setFilter("participating")}
-              className={`px-3 py-1 rounded-md ${
-                filter === "participating"
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-gray-100 hover:bg-gray-200"
-              }`}
-            >
-              Invited ({events.filter((e) => e.creator_id !== userId).length})
-            </button>
-          </div>
-
-          <div className="relative">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search events..."
-              className="w-full px-4 py-2 pl-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-            />
-            <svg
-              className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
+          {/* Search */}
+          <div className="relative animate-fade-in animate-delay-75">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm("")}
-                className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-              >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            )}
+            <input
+              type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search events..." className="input pl-10 py-2 text-sm"
+            />
           </div>
 
-          <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-200px)]">
-            {sortedEvents.length === 0 ? (
-              <div className="text-center text-gray-500 py-8">
-                {searchTerm ? (
-                  <>
-                    No events found matching &quot;{searchTerm}&quot;
-                    {filter !== "all" && (
-                      <>
-                        {" "}
-                        in{" "}
-                        {filter === "created"
-                          ? "created events"
-                          : "invitations"}
-                      </>
-                    )}
-                  </>
-                ) : filter === "all" ? (
-                  "No events found"
-                ) : filter === "created" ? (
-                  "You haven't created any events yet"
-                ) : (
-                  "You haven't been invited to any events yet"
-                )}
+          {/* Filter tabs */}
+          <div className="flex gap-1 p-1 bg-surface-tertiary rounded-lg animate-fade-in animate-delay-100">
+            {[
+              { key: "all", label: "All", count: events.length },
+              { key: "created", label: "Created", count: events.filter((e) => e.creator_id === userId).length },
+              { key: "participating", label: "Joined", count: events.filter((e) => e.creator_id !== userId).length },
+            ].map(({ key, label, count }) => (
+              <button
+                key={key}
+                onClick={() => setFilter(key as typeof filter)}
+                className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+                  filter === key ? "bg-white text-ink-primary shadow-soft" : "text-ink-secondary hover:text-ink-primary"
+                }`}
+              >
+                {label} <span className="opacity-50 ml-0.5">{count}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Event cards */}
+          <div className="space-y-2 max-h-[calc(100vh-320px)] overflow-y-auto pr-1">
+            {sorted.length === 0 ? (
+              <div className="text-center py-12 animate-fade-in">
+                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-surface-tertiary flex items-center justify-center">
+                  <svg className="w-6 h-6 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <p className="text-sm text-ink-secondary">No events found</p>
+                {searchTerm && <p className="text-xs text-ink-muted mt-1">Try a different search</p>}
               </div>
             ) : (
-              sortedEvents.map((event) => (
-                <div
+              sorted.map((event, i) => (
+                <button
                   key={event.id}
-                  className={`p-4 border rounded-lg transition-colors ${
+                  onClick={() => setSelectedEvent(event)}
+                  className={`w-full text-left p-4 rounded-xl border transition-all duration-200 animate-fade-in ${
                     selectedEvent?.id === event.id
-                      ? "border-blue-500 bg-blue-50"
-                      : "hover:bg-gray-50"
+                      ? "border-brand-300 bg-brand-50/50 shadow-sm"
+                      : "border-transparent bg-white hover:bg-surface-secondary hover:border-slate-200"
                   }`}
+                  style={{ animationDelay: `${i * 50}ms` }}
                 >
-                  <div
-                    onClick={() => handleEventSelect(event)}
-                    className="cursor-pointer"
-                  >
-                    <div className="flex justify-between items-start">
-                      <h3 className="text-lg font-semibold">{event.title}</h3>
-                      {event.creator_id === userId ? (
-                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                          Creator ({event.participant_count} participants)
-                        </span>
-                      ) : (
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                          Participant ({event.participant_count} total)
-                        </span>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-ink-primary truncate">{event.title}</h3>
+                      {event.description && (
+                        <p className="text-xs text-ink-secondary mt-0.5 line-clamp-2">{event.description}</p>
                       )}
+                      <p className="text-2xs text-ink-muted mt-1.5">
+                        {format(new Date(event.event_date), "MMM d, yyyy · h:mm a")}
+                      </p>
                     </div>
-                    <p className="text-gray-600 mt-1">{event.description}</p>
+                    <span className={`badge shrink-0 ${event.creator_id === userId ? "badge-brand" : "badge-success"}`}>
+                      {event.participant_count}
+                    </span>
                   </div>
-
-                  <div className="mt-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleEventDetails(event.id);
-                      }}
-                      className="text-sm text-blue-600 hover:text-blue-800 focus:outline-none"
-                    >
-                      {expandedEvents[event.id]
-                        ? "Hide Details"
-                        : "Show Details"}
-                    </button>
-
-                    <div
-                      className={`transition-height ${
-                        expandedEvents[event.id] ? "height-auto" : "height-zero"
-                      }`}
-                    >
-                      <div className="mt-2 space-y-2 pl-2 border-l-2 border-gray-200">
-                        <p className="text-sm text-gray-500 opacity-0 animate-fadeIn animation-delay-100">
-                          Date: {format(new Date(event.event_date), "PPp")}
-                        </p>
-                        <p className="text-sm text-gray-500 opacity-0 animate-fadeIn animation-delay-200">
-                          Created by: {event.creator_name}
-                        </p>
-                        {event.creator_id === userId && (
-                          <div className="text-sm text-gray-500 opacity-0 animate-fadeIn animation-delay-300">
-                            <p className="font-medium">Participants:</p>
-                            <ul className="ml-2 mt-1">
-                              {event.participants.map((participant, index) => (
-                                <li
-                                  key={index}
-                                  className="flex items-center space-x-1 animate-fadeIn"
-                                  style={{
-                                    animationDelay: `${index * 50 + 400}ms`,
-                                    opacity: 0,
-                                  }}
-                                >
-                                  <span>• {participant.name}</span>
-                                  {participant.email === event.creator_id && (
-                                    <span className="text-xs bg-blue-100 text-blue-800 px-1 rounded">
-                                      Creator
-                                    </span>
-                                  )}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                </button>
               ))
             )}
           </div>
         </div>
       </div>
 
+      {/* Main: Chat */}
       <div className="lg:col-span-2">
         {selectedEvent ? (
-          <div key={selectedEvent.id}>
-            <div className="flex justify-between items-center mb-4">
-              <div>
+          <div className="animate-fade-in" key={selectedEvent.id}>
+            {/* Chat header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-semibold">
-                    {selectedEvent.title}
-                  </h2>
+                  <h2 className="text-lg font-semibold text-ink-primary truncate">{selectedEvent.title}</h2>
                   {selectedEvent.creator_id === userId && (
-                    <button
-                      onClick={() => setIsRenameModalOpen(true)}
-                      className="text-sm text-blue-600 hover:text-blue-800"
-                    >
-                      Rename
+                    <button onClick={() => setIsRenameModalOpen(true)}
+                      className="btn-ghost btn-sm text-brand-600">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
                     </button>
                   )}
                 </div>
-                <p className="text-sm text-gray-500">
-                  {format(new Date(selectedEvent.event_date), "PPp")}
-                </p>
-                <div className="mt-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-medium">
-                      {selectedEvent.creator_id === userId ? (
-                        <div className="flex items-center gap-2">
-                          <span>
-                            Participants ({selectedEvent.participants.length})
-                          </span>
-                          <button
-                            onClick={() => setIsParticipantListOpen(true)}
-                            className="text-xs text-blue-600 hover:text-blue-800"
-                          >
-                            View List
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-gray-600">
-                          {selectedEvent.participants.length} participants in
-                          this event
-                        </span>
-                      )}
-                    </h3>
-                  </div>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <p className="text-xs text-ink-secondary">
+                    {format(new Date(selectedEvent.event_date), "MMM d, yyyy · h:mm a")}
+                  </p>
+                  <span className="text-ink-muted">·</span>
+                  <button onClick={() => setIsParticipantListOpen(true)}
+                    className="text-xs text-brand-600 hover:text-brand-700 font-medium">
+                    {selectedEvent.participant_count} participant{selectedEvent.participant_count !== 1 ? "s" : ""}
+                  </button>
                 </div>
               </div>
               {selectedEvent.creator_id === userId && (
-                <button
-                  onClick={() => setIsInviteModalOpen(true)}
-                  className="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700"
-                >
-                  Invite Participant
+                <button onClick={() => setIsInviteModalOpen(true)} className="btn-primary btn-sm">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                  Invite
                 </button>
               )}
             </div>
-            <ChatWindow
-              key={selectedEvent.id}
-              eventId={selectedEvent.id}
-              userId={userId}
-            />
+
+            <ChatWindow eventId={selectedEvent.id} userId={userId} />
           </div>
         ) : (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            Select an event to view the chat
+          <div className="flex flex-col items-center justify-center h-[70vh] text-center animate-fade-in">
+            <div className="w-20 h-20 rounded-3xl bg-surface-tertiary flex items-center justify-center mb-6">
+              <svg className="w-10 h-10 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-ink-primary mb-2">Select an event</h3>
+            <p className="text-sm text-ink-secondary max-w-xs">
+              Choose an event from the sidebar to start chatting, or create a new one.
+            </p>
+            <button onClick={() => setIsCreateModalOpen(true)} className="btn-primary mt-6">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Create your first event
+            </button>
           </div>
         )}
       </div>
 
-      <CreateEventModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onEventCreated={fetchEvents}
-      />
-
+      {/* Modals */}
+      <CreateEventModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} onEventCreated={fetchEvents} />
       {selectedEvent && (
         <>
-          <InviteParticipantModal
-            isOpen={isInviteModalOpen}
-            onClose={() => setIsInviteModalOpen(false)}
-            eventId={selectedEvent.id}
-            onSuccess={handleInviteSuccess}
-          />
-          <RenameEventModal
-            isOpen={isRenameModalOpen}
-            onClose={() => setIsRenameModalOpen(false)}
-            eventId={selectedEvent.id}
-            currentTitle={selectedEvent.title}
-            onSuccess={fetchEvents}
-          />
-          <ParticipantListModal
-            isOpen={isParticipantListOpen}
-            onClose={() => setIsParticipantListOpen(false)}
-            participants={selectedEvent.participants}
-            creatorId={selectedEvent.creator_id}
-            eventTitle={selectedEvent.title}
-          />
+          <InviteParticipantModal isOpen={isInviteModalOpen} onClose={() => setIsInviteModalOpen(false)}
+            eventId={selectedEvent.id} onSuccess={() => { fetchEvents(); setIsInviteModalOpen(false) }} />
+          <RenameEventModal isOpen={isRenameModalOpen} onClose={() => setIsRenameModalOpen(false)}
+            eventId={selectedEvent.id} currentTitle={selectedEvent.title} onSuccess={fetchEvents} />
+          <ParticipantListModal isOpen={isParticipantListOpen} onClose={() => setIsParticipantListOpen(false)}
+            participants={selectedEvent.participants} creatorId={selectedEvent.creator_id} eventTitle={selectedEvent.title} />
         </>
       )}
     </div>
-  );
-};
-
-export default EventDashboard;
+  )
+}

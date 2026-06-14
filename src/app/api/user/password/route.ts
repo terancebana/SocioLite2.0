@@ -1,44 +1,54 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import prisma from "@/lib/prisma";
-import bcrypt from "bcryptjs";
+import { NextResponse } from "next/server"
+import { auth } from "@/lib/auth"
+import { query } from "@/lib/db"
+import bcrypt from "bcryptjs"
 
 export async function PUT(request: Request) {
   try {
-    const session = await auth();
+    const session = await auth()
     if (!session?.user?.id) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const body = await request.json();
-    const { currentPassword, newPassword } = body;
+    const body = await request.json()
+    const { currentPassword, newPassword } = body
 
     if (!currentPassword || !newPassword) {
-      return new NextResponse("All fields are required", { status: 400 });
+      return NextResponse.json({ error: "Current and new password are required" }, { status: 400 })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-    });
-
-    if (!user) {
-      return new NextResponse("User not found", { status: 404 });
+    if (newPassword.length < 8) {
+      return NextResponse.json({ error: "New password must be at least 8 characters" }, { status: 400 })
     }
 
-    const isCorrectPassword = await bcrypt.compare(currentPassword, user.password);
+    // Get current password hash
+    const userResult = await query(
+      "SELECT password_hash FROM users WHERE id = $1",
+      [session.user.id]
+    )
+
+    if (userResult.rows.length === 0) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    const isCorrectPassword = await bcrypt.compare(
+      currentPassword,
+      userResult.rows[0].password_hash
+    )
+
     if (!isCorrectPassword) {
-      return new NextResponse("Invalid current password", { status: 400 });
+      return NextResponse.json({ error: "Invalid current password" }, { status: 400 })
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: { password: hashedPassword },
-    });
+    const hashedPassword = await bcrypt.hash(newPassword, 10)
+    await query(
+      "UPDATE users SET password_hash = $1 WHERE id = $2",
+      [hashedPassword, session.user.id]
+    )
 
-    return NextResponse.json({ message: "Password updated successfully" });
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("[USER_PASSWORD_UPDATE]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    console.error("[USER_PASSWORD_UPDATE]", error)
+    return NextResponse.json({ error: "Internal Error" }, { status: 500 })
   }
-} 
+}
