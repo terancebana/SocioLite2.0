@@ -7,7 +7,7 @@ export default async function LoginPage() {
   if (session) redirect("/")
 
   return (
-    <main className="min-h-[100dvh] flex flex-col lg:flex-row">
+    <main className="h-full flex flex-col lg:flex-row">
       {/* Brand panel — hidden on mobile, visible on desktop */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 items-center justify-center p-12 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">

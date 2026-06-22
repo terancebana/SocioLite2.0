@@ -10,7 +10,7 @@ export default function DashboardLayout({ userId, userName }: { userId: string; 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-    <div className="min-h-[100dvh] bg-surface-secondary flex flex-col">
+    <div className="h-full bg-surface-secondary flex flex-col overflow-hidden">
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-200/60 safe-top">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">

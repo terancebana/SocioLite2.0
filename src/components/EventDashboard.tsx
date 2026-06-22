@@ -231,7 +231,7 @@ export default function EventDashboard({ userId }: { userId: string }) {
       </div>
 
       {/* === MOBILE: slide between views === */}
-      <div className="lg:hidden flex flex-col h-[calc(100dvh-140px)]">
+      <div className="lg:hidden flex flex-col h-full">
         {mobileView === "list" && (
           <div className="flex-1 overflow-y-auto">{sidebar}</div>
         )}

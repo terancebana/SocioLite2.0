@@ -96,6 +96,10 @@ httpServer.listen(port, () => {
   console.log(`Socket.io server ready on port ${port}`)
 })
 
+// Graceful shutdown
+process.on('SIGTERM', () => { io.close(); httpServer.close(); process.exit(0) })
+process.on('SIGINT', () => { io.close(); httpServer.close(); process.exit(0) })
+
 function parseCookies(header: string): Record<string, string> {
   const cookies: Record<string, string> = {}
   if (!header) return cookies

@@ -79,7 +79,7 @@ export default function SettingsPage({ userId, userName, userEmail }: SettingsPa
   }
 
   return (
-    <main className="min-h-[100dvh] bg-surface-secondary safe-top safe-bottom flex flex-col">
+    <main className="h-full bg-surface-secondary safe-top safe-bottom flex flex-col overflow-auto">
       {/* Header bar — full width */}
       <div className="bg-white border-b border-slate-100 px-4 sm:px-8 lg:px-12 py-4 flex items-center justify-between">
         <div>
