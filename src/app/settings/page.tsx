@@ -1,15 +1,16 @@
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import SettingsPage from "@/components/SettingsPage";
+import { auth } from "@/lib/auth"
+import { redirect } from "next/navigation"
+import SettingsPage from "@/components/SettingsPage"
 
 export default async function Settings() {
-  const session = await auth();
-
-  if (!session?.user) {
-    redirect("/login");
-  }
+  const session = await auth()
+  if (!session?.user) redirect("/login")
 
   return (
-    <SettingsPage userId={session.user.id} userName={session.user.name || ""} />
-  );
+    <SettingsPage
+      userId={session.user.id}
+      userName={session.user.name || ""}
+      userEmail={session.user.email}
+    />
+  )
 }

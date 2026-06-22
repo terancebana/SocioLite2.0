@@ -10,19 +10,45 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { name } = body
+    const { name, email } = body
 
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 })
+    // Build dynamic update
+    const updates: string[] = []
+    const params: (string | number)[] = []
+    let paramIndex = 1
+
+    if (name !== undefined) {
+      if (typeof name !== "string" || name.trim().length === 0) {
+        return NextResponse.json({ error: "Name is required" }, { status: 400 })
+      }
+      if (name.length > 100) {
+        return NextResponse.json({ error: "Name must be under 100 characters" }, { status: 400 })
+      }
+      updates.push(`name = $${paramIndex++}`)
+      params.push(name.trim())
     }
 
-    if (name.length > 100) {
-      return NextResponse.json({ error: "Name must be under 100 characters" }, { status: 400 })
+    if (email !== undefined) {
+      if (!email || typeof email !== "string" || !email.includes("@") || email.length > 255) {
+        return NextResponse.json({ error: "Valid email is required" }, { status: 400 })
+      }
+      // Check if email already taken by another user
+      const existing = await query("SELECT id FROM users WHERE email = $1 AND id != $2", [email.toLowerCase().trim(), session.user.id])
+      if (existing.rows.length > 0) {
+        return NextResponse.json({ error: "Email already in use" }, { status: 400 })
+      }
+      updates.push(`email = $${paramIndex++}`)
+      params.push(email.toLowerCase().trim())
     }
 
+    if (updates.length === 0) {
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 })
+    }
+
+    params.push(session.user.id)
     const result = await query(
-      'UPDATE users SET name = $1 WHERE id = $2 RETURNING id, name, email',
-      [name.trim(), session.user.id]
+      `UPDATE users SET ${updates.join(", ")} WHERE id = $${paramIndex} RETURNING id, name, email, created_at`,
+      params
     )
 
     return NextResponse.json(result.rows[0])
@@ -40,7 +66,7 @@ export async function GET() {
     }
 
     const result = await query(
-      'SELECT id, name, email, created_at FROM users WHERE id = $1',
+      "SELECT id, name, email, created_at FROM users WHERE id = $1",
       [session.user.id]
     )
 

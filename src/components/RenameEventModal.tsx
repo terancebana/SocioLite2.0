@@ -11,41 +11,40 @@ export default function RenameEventModal({ isOpen, onClose, eventId, currentTitl
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => { if (isOpen) { setTitle(currentTitle); requestAnimationFrame(() => setIsVisible(true)) } else setIsVisible(false) }, [isOpen, currentTitle])
-
   const handleClose = () => { setIsVisible(false); setTimeout(onClose, 200) }
   if (!isOpen) return null
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault(); setIsLoading(true); setError("")
     try {
-      const response = await fetch(`/api/events/${eventId}/rename`, {
+      const r = await fetch(`/api/events/${eventId}/rename`, {
         method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }),
       })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || "Failed")
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || "Failed")
       onSuccess(); handleClose()
     } catch (err) { setError(err instanceof Error ? err.message : "Failed") }
     finally { setIsLoading(false) }
   }
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-colors duration-200 ${isVisible ? "bg-black/50" : "bg-transparent"}`} onClick={handleClose}>
-      <div className={`card p-6 w-full max-w-sm transition-all duration-200 ${isVisible ? "modal-content" : "opacity-0 scale-95"}`} onClick={(e) => e.stopPropagation()}>
+    <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center transition-colors duration-200 ${isVisible ? "bg-black/50" : "bg-transparent"}`} onClick={handleClose}>
+      <div className={`card p-6 w-full sm:max-w-sm transition-all duration-200 sm:rounded-2xl rounded-t-2xl ${isVisible ? "modal-content" : "opacity-0 translate-y-8"}`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-ink-primary">Rename Event</h2>
           <button onClick={handleClose} className="btn-ghost btn-icon btn-sm">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && <div className="bg-danger-light text-danger-dark px-4 py-3 rounded-xl text-sm animate-slide-down">{error}</div>}
+          {error && <div className="bg-danger-light text-danger-dark px-4 py-3 rounded-xl text-sm">{error}</div>}
           <div>
             <label className="block text-sm font-medium text-ink-primary mb-1.5">New Name</label>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={200} className="input" />
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={200} className="input text-base sm:text-sm" autoFocus />
           </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={handleClose} className="btn-secondary btn-sm">Cancel</button>
-            <button type="submit" disabled={isLoading || title === currentTitle || !title.trim()} className="btn-primary btn-sm">
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={handleClose} className="btn-secondary btn-sm flex-1 sm:flex-none">Cancel</button>
+            <button type="submit" disabled={isLoading || title === currentTitle || !title.trim()} className="btn-primary btn-sm flex-1 sm:flex-none">
               {isLoading ? "Renaming..." : "Rename"}
             </button>
           </div>
