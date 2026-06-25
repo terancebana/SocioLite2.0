@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss"
 
 export default {
+  darkMode: "class",
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -25,17 +26,17 @@ export default {
         },
         // Surfaces
         surface: {
-          DEFAULT: "#ffffff",
-          secondary: "#f8fafc",
-          tertiary: "#f1f5f9",
-          hover: "#e2e8f0",
+          DEFAULT: "rgb(var(--surface) / <alpha-value>)",
+          secondary: "rgb(var(--surface-secondary) / <alpha-value>)",
+          tertiary: "rgb(var(--surface-tertiary) / <alpha-value>)",
+          hover: "rgb(var(--surface-hover) / <alpha-value>)",
           dark: "#0f172a",
         },
         // Ink (text)
         ink: {
-          primary: "#0f172a",
-          secondary: "#475569",
-          muted: "#94a3b8",
+          primary: "rgb(var(--ink-primary) / <alpha-value>)",
+          secondary: "rgb(var(--ink-secondary) / <alpha-value>)",
+          muted: "rgb(var(--ink-muted) / <alpha-value>)",
           inverse: "#ffffff",
         },
         // Semantic

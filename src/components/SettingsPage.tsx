@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { toast } from "react-hot-toast"
 import { useRouter } from "next/navigation"
+import LogoutButton from "./LogoutButton"
 
 interface SettingsPageProps { userId: string; userName: string; userEmail: string }
 
@@ -170,19 +171,22 @@ export default function SettingsPage({ userId, userName, userEmail }: SettingsPa
               <p className="text-xs text-ink-secondary mb-4">
                 Once you delete your account, there is no going back. All your data will be permanently removed.
               </p>
-              <button
-                onClick={async () => {
-                  if (!confirm("Are you absolutely sure? This cannot be undone.")) return
-                  try {
-                    const r = await fetch("/api/auth/delete-account", { method: "DELETE" })
-                    if (r.ok) { router.push("/login") }
-                    else toast.error("Failed to delete account")
-                  } catch { toast.error("Failed to delete account") }
-                }}
-                className="btn-danger btn-sm"
-              >
-                Delete Account
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={async () => {
+                    if (!confirm("Are you absolutely sure? This cannot be undone.")) return
+                    try {
+                      const r = await fetch("/api/auth/delete-account", { method: "DELETE" })
+                      if (r.ok) { router.push("/login") }
+                      else toast.error("Failed to delete account")
+                    } catch { toast.error("Failed to delete account") }
+                  }}
+                  className="btn-danger btn-sm"
+                >
+                  Delete Account
+                </button>
+                <LogoutButton />
+              </div>
             </div>
           </div>
         )}

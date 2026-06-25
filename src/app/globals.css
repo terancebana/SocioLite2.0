@@ -6,15 +6,20 @@
    DESIGN TOKENS
    ============================================ */
 :root {
+  /* Brand (static — works on both themes) */
   --color-brand: #6366f1;
   --color-brand-dark: #4f46e5;
   --color-brand-light: #e0e7ff;
-  --color-surface: #ffffff;
-  --color-surface-secondary: #f8fafc;
-  --color-surface-tertiary: #f1f5f9;
-  --color-ink-primary: #0f172a;
-  --color-ink-secondary: #475569;
-  --color-ink-muted: #94a3b8;
+
+  /* Tailwind semantic tokens as RGB triplets (light defaults) */
+  --surface: 255 255 255;            /* #ffffff */
+  --surface-secondary: 248 250 252;  /* #f8fafc */
+  --surface-tertiary: 241 245 249;   /* #f1f5f9 */
+  --surface-hover: 226 232 240;      /* #e2e8f0 */
+  --ink-primary: 15 23 42;           /* #0f172a */
+  --ink-secondary: 71 85 105;        /* #475569 */
+  --ink-muted: 148 163 184;          /* #94a3b8 */
+
   --color-success: #10b981;
   --color-danger: #ef4444;
   --color-border: #e2e8f0;
@@ -25,6 +30,66 @@
   --shadow-soft: 0 1px 3px 0 rgb(0 0 0 / 0.03);
   --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
   --shadow-modal: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+  /* WhatsApp-layout tokens (light) */
+  --rail-bg: linear-gradient(180deg, #312e81, #1e1b4b);
+  --app-bg: #f1f5f9;
+  --list-bg: #ffffff;
+  --panel-border: #e7eaf0;
+  --chat-bg: #eceef3;
+  --dot: rgba(99, 102, 241, 0.06);
+  --bubble-me-bg: #6366f1;
+  --bubble-me-text: #ffffff;
+  --bubble-them-bg: #ffffff;
+  --bubble-them-text: #0f172a;
+  --bubble-them-border: #eef0f4;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --row-hover: #f6f7f9;
+  --row-selected: #eef2ff;
+  --accent: #6366f1;
+  --accent-text: #4f46e5;
+  --badge-bg: #6366f1;
+  --search-bg: #f1f3f7;
+  --system-bubble-bg: #e0e7ff;
+  --system-bubble-text: #4338ca;
+}
+
+.dark {
+  --surface: 14 22 40;            /* #0e1628 */
+  --surface-secondary: 8 15 31;   /* #080f1f */
+  --surface-tertiary: 28 39 64;   /* #1c2740 */
+  --surface-hover: 24 35 60;      /* #18233c */
+  --ink-primary: 241 245 249;     /* #f1f5f9 */
+  --ink-secondary: 148 163 184;   /* #94a3b8 */
+  --ink-muted: 100 116 139;       /* #64748b */
+
+  --color-border: #1c2740;
+
+  /* WhatsApp-layout tokens (dark) */
+  --rail-bg: linear-gradient(180deg, #0b1224, #020617);
+  --app-bg: #020617;
+  --list-bg: #0e1628;
+  --panel-border: #1c2740;
+  --chat-bg: #080f1f;
+  --dot: rgba(255, 255, 255, 0.035);
+  --bubble-me-bg: #4f46e5;
+  --bubble-me-text: #ffffff;
+  --bubble-them-bg: #1c2740;
+  --bubble-them-text: #e2e8f0;
+  --bubble-them-border: #243150;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --row-hover: #18233c;
+  --row-selected: #1c2740;
+  --accent: #818cf8;
+  --accent-text: #a5b4fc;
+  --badge-bg: #6366f1;
+  --search-bg: #1c2740;
+  --system-bubble-bg: #1c2740;
+  --system-bubble-text: #a5b4fc;
 }
 
 /* ============================================
@@ -205,6 +270,13 @@
   /* Safe area insets for mobile notches */
   .safe-top { padding-top: env(safe-area-inset-top, 0px); }
   .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+  /* WhatsApp-style dotted chat wallpaper */
+  .wa-wallpaper {
+    background-color: var(--chat-bg);
+    background-image: radial-gradient(var(--dot) 1.4px, transparent 1.4px);
+    background-size: 22px 22px;
+  }
 
   /* Mobile fullscreen modal */
   .modal-mobile {
